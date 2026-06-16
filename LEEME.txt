@@ -1,0 +1,40 @@
+CCdeQbot CRM - Web completa
+
+ESTRUCTURA PARA CPANEL
+
+public_html/
+└── ccdeqbot/
+    ├── index.html
+    ├── .htaccess
+    ├── back/
+    │   ├── api/
+    │   ├── app/
+    │   ├── crear-admin.php
+    │   └── .htaccess
+    └── front/
+        ├── index.html
+        ├── assets/
+        └── .htaccess
+
+INSTALACION
+
+1. Sube la carpeta "ccdeqbot" directamente dentro de public_html.
+2. La ruta final debe ser public_html/ccdeqbot.
+3. Abre https://TU-DOMINIO/ccdeqbot/back/api/health para probar la API.
+4. Si aun no existe un usuario, abre:
+   https://TU-DOMINIO/ccdeqbot/back/crear-admin.php
+5. Después de crear el primer superadministrador, elimina crear-admin.php.
+6. Accede al CRM desde https://TU-DOMINIO/ccdeqbot/
+
+BASE DE DATOS
+
+La carpeta database contiene:
+- 01_crmcamar_ccdeqbot.sql: creación inicial de tablas.
+- 03_agregar_superadministrador.sql: migración para agregar el rol superadministrador.
+
+Si la base ya está creada y la migración ya fue aplicada, no vuelvas a ejecutarlas.
+
+NOTA
+
+Este paquete contiene solamente la web del CRM (backend PHP y frontend React compilado).
+El bot de Firebase se mantiene en su proyecto independiente.
