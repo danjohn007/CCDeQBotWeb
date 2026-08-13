@@ -26,7 +26,7 @@ try {
     if ($method === 'GET' && $path === '/health') {
         Database::connection()->query('SELECT 1');
         Response::success([
-            'servicio' => 'AllunayBOY CRM API',
+            'servicio' => 'AllunayBOT CRM API',
             'estado' => 'ok',
             'fecha' => date(DATE_ATOM),
         ]);
