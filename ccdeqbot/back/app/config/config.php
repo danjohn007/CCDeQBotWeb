@@ -2,10 +2,14 @@
 
 declare(strict_types=1);
 
+// Calcula dinámicamente la ruta base de la API según la carpeta donde se aloje el proyecto.
+$scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+$basePath = preg_replace('#/index\.php$#', '', $scriptName) ?: '/api';
+
 return [
     'app_env' => 'production',
     'timezone' => 'America/Mexico_City',
-    'base_path' => '/ccdeqbot/back/api',
+    'base_path' => $basePath,
     'db' => [
         'host' => 'localhost',
         'name' => 'crmcamar_allunay',

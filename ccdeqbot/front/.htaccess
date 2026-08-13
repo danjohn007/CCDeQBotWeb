@@ -1,6 +1,6 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /ccdeqbot/front/
+# Sin RewriteBase fijo: las rutas se resuelven relativas a la carpeta donde se aloje el proyecto.
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]

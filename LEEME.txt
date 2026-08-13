@@ -3,7 +3,7 @@ CCdeQbot CRM - Web completa
 ESTRUCTURA PARA CPANEL
 
 public_html/
-└── ccdeqbot/
+└── CUALQUIER-CARPETA/   (ej. Allunay, ccdeqbot, etc.)
     ├── index.html
     ├── .htaccess
     ├── back/
@@ -18,21 +18,35 @@ public_html/
 
 INSTALACION
 
-1. Sube la carpeta "ccdeqbot" directamente dentro de public_html.
-2. La ruta final debe ser public_html/ccdeqbot.
-3. Abre https://TU-DOMINIO/ccdeqbot/back/api/health para probar la API.
-4. Si aun no existe un usuario, abre:
-   https://TU-DOMINIO/ccdeqbot/back/crear-admin.php
-5. Después de crear el primer superadministrador, elimina crear-admin.php.
-6. Accede al CRM desde https://TU-DOMINIO/ccdeqbot/
+1. Sube la carpeta del proyecto directamente dentro de public_html.
+   Puede ser en cualquier carpeta: /Allunay, /ccdeqbot, /pruebas, etc.
+2. Configura la conexión a la base de datos en:
+   back/app/config/config.php
+   - Host: localhost
+   - BD (name): crmcamar_allunay
+   - Usuario (user): crmcamar_allunayadmin
+   - Contraseña (password): la de tu cPanel
+3. Importa la base de datos desde database/crmcamar_allunay.sql
+   si aún no la has importado en phpMyAdmin.
+4. Abre https://TU-DOMINIO/CARPETA/back/api/health para probar la API.
+   Debe responder: { "servicio": "CCdeQbot CRM API", "estado": "ok", ... }
+5. Si aún no existe un usuario, abre:
+   https://TU-DOMINIO/CARPETA/back/crear-admin.php
+   Usa la clave de instalación que aparece en back/app/config/config.php (setup_key).
+6. Después de crear el primer superadministrador, elimina crear-admin.php.
+7. Accede al CRM desde https://TU-DOMINIO/CARPETA/
+
+Las rutas son dinámicas: el sistema detecta automáticamente la carpeta
+donde está instalado, por lo que funciona en cualquier subcarpeta del cPanel.
 
 BASE DE DATOS
 
 La carpeta database contiene:
-- 01_crmcamar_ccdeqbot.sql: creación inicial de tablas.
-- 03_agregar_superadministrador.sql: migración para agregar el rol superadministrador.
+- crmcamar_allunay.sql: dump completo de la base de datos.
+  Incluye todas las tablas (contactos, cotizaciones, usuarios, etc.)
+  y un superadministrador inicial.
 
-Si la base ya está creada y la migración ya fue aplicada, no vuelvas a ejecutarlas.
+Si la base ya está creada y contiene los datos, no vuelvas a importarla.
 
 NOTA
 

@@ -44,10 +44,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'OPTIONS') {
 }
 
 $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
+// Ruta de la cookie dinámica: usa la carpeta base donde se aloja el proyecto.
+$cookiePath = (string) ($config['base_path'] ?? '/');
+$cookiePath = preg_replace('#/back/api$#', '', $cookiePath) ?: '/';
 session_name((string) $config['session']['name']);
 session_set_cookie_params([
     'lifetime' => (int) $config['session']['lifetime'],
-    'path' => '/ccdeqbot',
+    'path' => $cookiePath,
     'secure' => $secure,
     'httponly' => true,
     'samesite' => 'Lax',
