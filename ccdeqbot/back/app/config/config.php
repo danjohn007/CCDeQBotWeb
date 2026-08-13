@@ -8,9 +8,9 @@ return [
     'base_path' => '/ccdeqbot/back/api',
     'db' => [
         'host' => 'localhost',
-        'name' => 'crmcamar_ccdeqbot',
-        'user' => 'crmcamar_ccdeqbotuser',
-        'password' => 'Danjohn007!',
+        'name' => 'crmcamar_allunay',
+        'user' => 'crmcamar_allunayadmin',
+        'password' => 'cnhmYoIC[O^v',
         'charset' => 'utf8mb4',
     ],
     'session' => [
