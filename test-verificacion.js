@@ -69,8 +69,10 @@ const crearAdmin = checkFile('ccdeqbot/back/crear-admin.php') || '';
 const frontIndex = checkFile('ccdeqbot/front/index.html') || '';
 const ccdeqIndex = checkFile('ccdeqbot/index.html') || '';
 
-// Referencias correctas - "AllunayBOT" en JS compilado
-check(js.includes('AllunayBOT'), 'JS debe contener "AllunayBOT" (sidebar/login/dashboard)');
+// Referencias correctas - "Alunay" en JS compilado
+check(js.includes('Alunay'), 'JS debe contener "Alunay" (sidebar/login/dashboard)');
+check(!js.includes('AllunayBOT'), 'JS NO debe contener "AllunayBOT"');
+check(!js.includes('Allunay'), 'JS NO debe contener "Allunay"');
 // Verificar que no queden variantes incorrectas
 const incorrectas = ['Allunay Bot', 'Allunaybot', 'Allunay bot', 'Allunay-Bot', 'Allunay_Bot'];
 incorrectas.forEach(v => {
