@@ -333,6 +333,21 @@ CREATE TABLE `usuarios_sistema` (
 -- --------------------------------------------------------
 
 --
+-- Estructura de tabla para la tabla `videos`
+--
+
+CREATE TABLE `videos` (
+  `id_video` bigint(20) UNSIGNED NOT NULL,
+  `titulo` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `url` varchar(500) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `activo` tinyint(1) NOT NULL DEFAULT '1',
+  `creado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `actualizado_en` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+
+-- --------------------------------------------------------
+
+--
 -- Estructura de tabla para la tabla `ventas`
 --
 
@@ -493,6 +508,13 @@ ALTER TABLE `usuarios_sistema`
   ADD KEY `idx_usuarios_rol_activo` (`rol`,`activo`);
 
 --
+-- Indices de la tabla `videos`
+--
+ALTER TABLE `videos`
+  ADD PRIMARY KEY (`id_video`),
+  ADD KEY `idx_videos_activo` (`activo`);
+
+--
 -- Indices de la tabla `ventas`
 --
 ALTER TABLE `ventas`
@@ -584,6 +606,12 @@ ALTER TABLE `solicitudes`
 --
 ALTER TABLE `usuarios_sistema`
   MODIFY `id_usuario` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT de la tabla `videos`
+--
+ALTER TABLE `videos`
+  MODIFY `id_video` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT de la tabla `ventas`

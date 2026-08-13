@@ -51,14 +51,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $pdo && $count === 0) {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Crear superadministrador | AllunayBOT CRM</title>
+    <title>Crear superadministrador | Alunay CRM</title>
     <style>
         *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f0f7f6;color:#1A322F;display:grid;min-height:100vh;place-items:center;padding:24px}.card{width:min(520px,100%);background:#fff;border-radius:18px;padding:32px;box-shadow:0 18px 60px rgba(0,141,133,.14);border-top:6px solid #008D85}h1{margin:0 0 8px;color:#008D85}p{line-height:1.5}.field{margin:14px 0}label{display:block;font-weight:700;margin-bottom:6px}input{width:100%;padding:12px 14px;border:1px solid #bfd8d5;border-radius:10px;font:inherit}button{width:100%;border:0;border-radius:10px;padding:13px;background:#008D85;color:#fff;font-weight:700;cursor:pointer}.alert{padding:12px 14px;border-radius:10px;margin:16px 0}.ok{background:#e0f2ef;color:#006E68}.error{background:#fff0ef;color:#9b2c24}.small{font-size:13px;color:#5C7A77}
     </style>
 </head>
 <body>
 <main class="card">
-    <h1>AllunayBOT CRM</h1>
+    <h1>Alunay CRM</h1>
     <p>Crea el primer usuario superadministrador. Esta cuenta tendrá acceso completo al sistema.</p>
     <?php if ($message): ?><div class="alert ok"><?= htmlspecialchars($message) ?></div><?php endif; ?>
     <?php if ($error): ?><div class="alert error"><?= htmlspecialchars($error) ?></div><?php endif; ?>

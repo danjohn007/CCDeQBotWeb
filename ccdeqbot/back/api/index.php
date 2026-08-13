@@ -11,6 +11,7 @@ use App\Controllers\ContactController;
 use App\Controllers\DashboardController;
 use App\Controllers\QuoteController;
 use App\Controllers\UserController;
+use App\Controllers\VideoController;
 use App\Core\Auth;
 use App\Core\Csrf;
 use App\Core\Database;
@@ -26,7 +27,7 @@ try {
     if ($method === 'GET' && $path === '/health') {
         Database::connection()->query('SELECT 1');
         Response::success([
-            'servicio' => 'AllunayBOT CRM API',
+            'servicio' => 'Alunay CRM API',
             'estado' => 'ok',
             'fecha' => date(DATE_ATOM),
         ]);
@@ -58,6 +59,11 @@ try {
     if ($method === 'PATCH' && preg_match('#^/usuarios/(\d+)/estatus$#', $path, $m)) UserController::toggleStatus((int) $m[1]);
     if ($method === 'GET' && $path === '/catalogos/asesores') UserController::advisors();
     if ($method === 'GET' && $path === '/catalogos/etiquetas') UserController::tags();
+    if ($method === 'GET' && $path === '/videos') VideoController::index();
+    if ($method === 'POST' && $path === '/videos') VideoController::create();
+    if ($method === 'PUT' && preg_match('#^/videos/(\d+)$#', $path, $m)) VideoController::update((int) $m[1]);
+    if ($method === 'PATCH' && preg_match('#^/videos/(\d+)/estatus$#', $path, $m)) VideoController::toggleStatus((int) $m[1]);
+    if ($method === 'DELETE' && preg_match('#^/videos/(\d+)$#', $path, $m)) VideoController::delete((int) $m[1]);
 
     Response::error('La ruta solicitada no existe.', 404);
 } catch (Throwable $e) {
