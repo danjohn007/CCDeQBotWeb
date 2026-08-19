@@ -21,7 +21,7 @@ final class Auth
         }
 
         $stmt = Database::connection()->prepare(
-            'SELECT id_usuario, nombre, apellidos, correo, rol, activo, ultimo_acceso
+            'SELECT id_usuario, nombre, apellidos, correo, rol, activo, ultimo_acceso, foto_perfil
              FROM usuarios_sistema WHERE id_usuario = :id LIMIT 1'
         );
         $stmt->execute(['id' => $id]);

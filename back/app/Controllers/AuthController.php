@@ -95,6 +95,7 @@ final class AuthController
             'correo' => $user['correo'],
             'rol' => $user['rol'],
             'ultimo_acceso' => $user['ultimo_acceso'] ?? null,
+            'foto_perfil' => $user['foto_perfil'] ?? null,
         ];
     }
 }

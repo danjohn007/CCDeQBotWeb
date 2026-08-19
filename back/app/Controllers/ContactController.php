@@ -14,6 +14,7 @@ use PDO;
 final class ContactController
 {
     private const TYPES = ['lead', 'cliente_pendiente', 'cliente'];
+    private const SEGMENTS = ['lead', 'lead_recurrente', 'cliente', 'cliente_recurrente'];
     private const STAGES = [
         'nuevo', 'informacion_solicitada', 'interesado', 'cotizacion_solicitada',
         'cotizacion_enviada', 'seguimiento', 'compra_confirmada', 'no_interesado',
@@ -32,8 +33,14 @@ final class ContactController
 
         $q = trim((string) ($_GET['q'] ?? ''));
         if ($q !== '') {
-            $where[] = '(c.nombre_completo LIKE :q OR c.whatsapp LIKE :q OR c.correo LIKE :q OR c.empresa LIKE :q)';
-            $params['q'] = '%' . $q . '%';
+            // PDO con prepares nativos no permite reutilizar el mismo placeholder varias veces.
+            // Usamos parámetros independientes para evitar HY093 al utilizar el buscador.
+            $where[] = '(c.nombre_completo LIKE :q_nombre OR c.whatsapp LIKE :q_whatsapp OR c.correo LIKE :q_correo OR c.empresa LIKE :q_empresa)';
+            $like = '%' . $q . '%';
+            $params['q_nombre'] = $like;
+            $params['q_whatsapp'] = $like;
+            $params['q_correo'] = $like;
+            $params['q_empresa'] = $like;
         }
 
         $type = (string) ($_GET['tipo'] ?? '');
@@ -46,6 +53,38 @@ final class ContactController
         if (in_array($stage, self::STAGES, true)) {
             $where[] = 'c.etapa_comercial = :etapa';
             $params['etapa'] = $stage;
+        }
+
+        $segment = (string) ($_GET['segmento'] ?? '');
+        if (in_array($segment, self::SEGMENTS, true)) {
+            switch ($segment) {
+                case 'lead':
+                    $where[] = "c.tipo_contacto = 'lead' AND (SELECT COUNT(*) FROM conversaciones scv WHERE scv.id_contacto = c.id_contacto) <= 1";
+                    break;
+                case 'lead_recurrente':
+                    $where[] = "c.tipo_contacto = 'lead' AND (SELECT COUNT(*) FROM conversaciones scv WHERE scv.id_contacto = c.id_contacto) > 1";
+                    break;
+                case 'cliente':
+                    $where[] = "c.tipo_contacto IN ('cliente','cliente_pendiente') AND NOT (
+                        c.tipo_contacto = 'cliente' AND (
+                            (SELECT COUNT(*) FROM cotizaciones scc WHERE scc.id_contacto = c.id_contacto AND scc.estado = 'aceptada') >= 2
+                            OR (c.convertido_cliente_en IS NOT NULL AND EXISTS (
+                                SELECT 1 FROM conversaciones scr
+                                WHERE scr.id_contacto = c.id_contacto AND scr.iniciada_en > c.convertido_cliente_en LIMIT 1
+                            ))
+                        )
+                    )";
+                    break;
+                case 'cliente_recurrente':
+                    $where[] = "c.tipo_contacto = 'cliente' AND (
+                        (SELECT COUNT(*) FROM cotizaciones scc WHERE scc.id_contacto = c.id_contacto AND scc.estado = 'aceptada') >= 2
+                        OR (c.convertido_cliente_en IS NOT NULL AND EXISTS (
+                            SELECT 1 FROM conversaciones scr
+                            WHERE scr.id_contacto = c.id_contacto AND scr.iniciada_en > c.convertido_cliente_en LIMIT 1
+                        ))
+                    )";
+                    break;
+            }
         }
 
         $advisor = (int) ($_GET['asesor'] ?? 0);
@@ -89,7 +128,23 @@ final class ContactController
                      FROM contacto_etiquetas ce JOIN etiquetas e ON e.id_etiqueta = ce.id_etiqueta
                      WHERE ce.id_contacto = c.id_contacto) etiquetas_raw,
                     (SELECT COUNT(*) FROM interacciones i WHERE i.id_contacto = c.id_contacto) total_interacciones,
-                    (SELECT COUNT(*) FROM cotizaciones co WHERE co.id_contacto = c.id_contacto) total_cotizaciones
+                    (SELECT MAX(iu.registrado_en)
+                     FROM interacciones iu
+                     WHERE iu.id_contacto = c.id_contacto AND iu.direccion = 'entrante') ultima_entrada_en,
+                    TIMESTAMPDIFF(
+                        HOUR,
+                        (SELECT MAX(iuh.registrado_en)
+                         FROM interacciones iuh
+                         WHERE iuh.id_contacto = c.id_contacto AND iuh.direccion = 'entrante'),
+                        NOW()
+                    ) horas_desde_ultimo_mensaje_usuario,
+                    (SELECT COUNT(*) FROM conversaciones cv WHERE cv.id_contacto = c.id_contacto) total_conversaciones,
+                    (SELECT COUNT(*) FROM cotizaciones co WHERE co.id_contacto = c.id_contacto) total_cotizaciones,
+                    (SELECT COUNT(*) FROM cotizaciones ca WHERE ca.id_contacto = c.id_contacto AND ca.estado = 'aceptada') compras_confirmadas,
+                    (SELECT COUNT(*) FROM conversaciones cr
+                     WHERE cr.id_contacto = c.id_contacto
+                       AND c.convertido_cliente_en IS NOT NULL
+                       AND cr.iniciada_en > c.convertido_cliente_en) retornos_cliente
                 FROM contactos c
                 LEFT JOIN usuarios_sistema u ON u.id_usuario = c.id_asesor
                 WHERE {$whereSql}
@@ -103,7 +158,20 @@ final class ContactController
             $row['id_contacto'] = (int) $row['id_contacto'];
             $row['id_asesor'] = $row['id_asesor'] !== null ? (int) $row['id_asesor'] : null;
             $row['total_interacciones'] = (int) $row['total_interacciones'];
+            $row['horas_desde_ultimo_mensaje_usuario'] = $row['horas_desde_ultimo_mensaje_usuario'] !== null
+                ? (int) $row['horas_desde_ultimo_mensaje_usuario']
+                : null;
+            $row['total_conversaciones'] = (int) ($row['total_conversaciones'] ?? 0);
             $row['total_cotizaciones'] = (int) $row['total_cotizaciones'];
+            $row['compras_confirmadas'] = (int) ($row['compras_confirmadas'] ?? 0);
+            $row['retornos_cliente'] = (int) ($row['retornos_cliente'] ?? 0);
+            if ($row['tipo_contacto'] === 'lead') {
+                $row['segmento_principal'] = $row['total_conversaciones'] > 1 ? 'lead_recurrente' : 'lead';
+            } elseif ($row['tipo_contacto'] === 'cliente' && ($row['compras_confirmadas'] >= 2 || $row['retornos_cliente'] > 0)) {
+                $row['segmento_principal'] = 'cliente_recurrente';
+            } else {
+                $row['segmento_principal'] = 'cliente';
+            }
             $row['etiquetas'] = self::parseTags($row['etiquetas_raw'] ?? null);
             unset($row['etiquetas_raw']);
         }
@@ -134,6 +202,37 @@ final class ContactController
             Response::error('El contacto no existe.', 404);
         }
 
+        // El tipo visible al usuario se deriva de la recurrencia real.
+        // Conservamos tipo_contacto para la lógica histórica del bot/CRM.
+        $segmentStats = $pdo->prepare(
+            "SELECT
+                (SELECT COUNT(*) FROM conversaciones cv WHERE cv.id_contacto = :id_conv) total_conversaciones,
+                (SELECT COUNT(*) FROM cotizaciones cq WHERE cq.id_contacto = :id_quote AND cq.estado = 'aceptada') compras_confirmadas,
+                (SELECT COUNT(*) FROM conversaciones cr
+                 WHERE cr.id_contacto = :id_return
+                   AND :converted IS NOT NULL
+                   AND cr.iniciada_en > :converted_again) retornos_cliente"
+        );
+        $segmentStats->execute([
+            'id_conv' => $id,
+            'id_quote' => $id,
+            'id_return' => $id,
+            'converted' => $contact['convertido_cliente_en'] ?? null,
+            'converted_again' => $contact['convertido_cliente_en'] ?? null,
+        ]);
+        $segmentInfo = $segmentStats->fetch(PDO::FETCH_ASSOC) ?: [];
+        $totalConversaciones = (int) ($segmentInfo['total_conversaciones'] ?? 0);
+        $comprasConfirmadas = (int) ($segmentInfo['compras_confirmadas'] ?? 0);
+        $retornosCliente = (int) ($segmentInfo['retornos_cliente'] ?? 0);
+
+        if (($contact['tipo_contacto'] ?? '') === 'lead') {
+            $contact['segmento_principal'] = $totalConversaciones > 1 ? 'lead_recurrente' : 'lead';
+        } elseif (($contact['tipo_contacto'] ?? '') === 'cliente' && ($comprasConfirmadas >= 2 || $retornosCliente > 0)) {
+            $contact['segmento_principal'] = 'cliente_recurrente';
+        } else {
+            $contact['segmento_principal'] = 'cliente';
+        }
+
         $tags = $pdo->prepare(
             'SELECT e.id_etiqueta, e.nombre, e.slug, e.color_fondo, e.color_texto
              FROM contacto_etiquetas ce JOIN etiquetas e ON e.id_etiqueta = ce.id_etiqueta
@@ -155,10 +254,14 @@ final class ContactController
         );
         $interactions->execute(['id' => $id]);
 
+        QuoteController::ensureFileTable($pdo);
         $quotes = $pdo->prepare(
             "SELECT co.*,
                     (SELECT GROUP_CONCAT(CONCAT(cd.producto_nombre, ' × ', cd.cantidad) SEPARATOR ', ')
-                     FROM cotizacion_detalles cd WHERE cd.id_cotizacion = co.id_cotizacion) productos
+                     FROM cotizacion_detalles cd WHERE cd.id_cotizacion = co.id_cotizacion) productos,
+                    (SELECT ca.archivo_url FROM cotizacion_archivos ca WHERE ca.id_cotizacion = co.id_cotizacion AND ca.activo = 1 ORDER BY ca.subido_en DESC LIMIT 1) archivo_url,
+                    (SELECT ca.archivo_nombre_original FROM cotizacion_archivos ca WHERE ca.id_cotizacion = co.id_cotizacion AND ca.activo = 1 ORDER BY ca.subido_en DESC LIMIT 1) archivo_nombre_original,
+                    (SELECT ca.subido_en FROM cotizacion_archivos ca WHERE ca.id_cotizacion = co.id_cotizacion AND ca.activo = 1 ORDER BY ca.subido_en DESC LIMIT 1) archivo_subido_en
              FROM cotizaciones co WHERE co.id_contacto = :id ORDER BY co.solicitada_en DESC"
         );
         $quotes->execute(['id' => $id]);
@@ -213,7 +316,11 @@ final class ContactController
             if (array_key_exists($field, $data)) {
                 $sets[] = "{$field} = :{$field}";
                 $value = $data[$field];
-                if ($field === 'id_asesor') {
+                if ($field === 'notas_generales') {
+                    // Este campo funciona como captura rápida: la nota se archiva en
+                    // notas_contacto y el textarea debe quedar vacío después de guardar.
+                    $value = null;
+                } elseif ($field === 'id_asesor') {
                     $value = $value === '' || $value === null ? null : (int) $value;
                 } elseif (is_string($value)) {
                     $value = trim($value);
@@ -227,8 +334,37 @@ final class ContactController
             Response::error('No se recibieron campos para actualizar.', 422);
         }
 
-        $stmt = $pdo->prepare('UPDATE contactos SET ' . implode(', ', $sets) . ' WHERE id_contacto = :id');
-        $stmt->execute($params);
+        $generalNote = array_key_exists('notas_generales', $data)
+            ? trim((string) ($data['notas_generales'] ?? ''))
+            : '';
+
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare('UPDATE contactos SET ' . implode(', ', $sets) . ' WHERE id_contacto = :id');
+            $stmt->execute($params);
+
+            // Las notas generales capturadas desde la ficha también forman parte del historial
+            // de Notas internas para que el equipo no pierda el seguimiento.
+            if ($generalNote !== '') {
+                $note = $pdo->prepare(
+                    'INSERT INTO notas_contacto (id_contacto, id_usuario, nota, es_privada)
+                     VALUES (:contacto, :usuario, :nota, 0)'
+                );
+                $note->execute([
+                    'contacto' => $id,
+                    'usuario' => $user['id_usuario'],
+                    'nota' => $generalNote,
+                ]);
+            }
+
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            throw $e;
+        }
+
         Audit::log('actualizar', 'contacto', $id, 'Datos generales actualizados', $before, $data, (int) $user['id_usuario']);
         Response::success(null, 200, 'Contacto actualizado correctamente.');
     }

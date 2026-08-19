@@ -1,9 +1,14 @@
 Options -Indexes
 RewriteEngine On
 RewriteBase /ccdeqbot/front/
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
+
+# Mantener disponibles los assets compilados.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Redirigir rutas antiguas /ccdeqbot/front/... a la ruta limpia /ccdeqbot/...
+RewriteRule ^(.*)$ /ccdeqbot/$1 [R=302,L]
 
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
