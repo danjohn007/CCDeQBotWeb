@@ -196,7 +196,7 @@
   .filters-panel select{width:100%;max-width:none}
 }
 
-/* Prueba individual 48h+: facilita elegir un contacto fuera de la ventana */
+/* Buscador individual de contactos y estado de ventana de servicio */
 .contact-search-item{align-items:flex-start}
 .contact-search-item>div{flex:1}
 .contact-search-item em.contact-last-message,

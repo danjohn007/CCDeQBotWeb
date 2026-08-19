@@ -22,7 +22,7 @@ return [
         'http://127.0.0.1:5173',
     ],
     'messaging' => [
-        // Modo de prueba tipo ColonBot: la web encola y Firebase procesa cada 5 minutos.
+        // Cola programada de producción: la web encola y Firebase procesa cada 5 minutos.
         'use_scheduled_queue' => true,
 
         // Envíos por grupos (Prospectos, Clientes, etc.).

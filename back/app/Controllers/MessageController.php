@@ -14,7 +14,6 @@ final class MessageController
 {
     private const SEGMENTS = ['lead', 'lead_recurrente', 'cliente', 'cliente_recurrente'];
     private const MAX_RECIPIENTS = 200;
-    private const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
     /**
      * Segmentación comercial derivada del comportamiento real del CRM.
@@ -101,9 +100,8 @@ final class MessageController
             Response::error('El mensaje no puede superar 4096 caracteres.', 422);
         }
 
-        $image = self::readImage();
-        if ($message === '' && $image === null) {
-            Response::error('Escribe un mensaje o adjunta una imagen.', 422);
+        if ($message === '') {
+            Response::error('Escribe un mensaje.', 422);
         }
 
         $pdo = Database::connection();
@@ -132,7 +130,7 @@ final class MessageController
         // Opción A: la web encola la promoción. Firebase decide por destinatario:
         // mensaje libre si la ventana de 24 h está abierta; template MARKETING aprobado si está cerrada.
         if (($config['use_scheduled_queue'] ?? false) === true) {
-            self::queueSend($pdo, $recipients, $types, $message, $image, $user, $isIndividual, $contactId);
+            self::queueSend($pdo, $recipients, $types, $message, $user, $isIndividual, $contactId);
         }
 
         $url = trim((string) ($isIndividual
@@ -178,9 +176,6 @@ final class MessageController
             ];
         }
 
-        if ($image !== null) {
-            $payload['imagen'] = $image;
-        }
 
         $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($encoded === false) {
@@ -239,7 +234,6 @@ final class MessageController
                 'tipos' => $types,
                 'contacto_individual' => $isIndividual ? $contactId : null,
                 'destinatarios' => $requested,
-                'con_imagen' => $image !== null,
                 'enviados' => $sent,
                 'errores' => $errors,
                 'canal' => $isIndividual ? 'agente_individual' : 'broadcast',
@@ -263,7 +257,6 @@ final class MessageController
         array $recipients,
         array $types,
         string $message,
-        ?array $image,
         array $user,
         bool $isIndividual,
         int $contactId
@@ -278,17 +271,12 @@ final class MessageController
 
             $campaignStmt = $pdo->prepare(
                 "INSERT INTO mensajes_campanas
-                    (mensaje, imagen_nombre, imagen_mime, imagen_base64, segmentos_json,
-                     creado_por, estado, total_destinatarios, enviados, errores, creado_en, actualizado_en)
+                    (mensaje, segmentos_json, creado_por, estado, total_destinatarios, enviados, errores, creado_en, actualizado_en)
                  VALUES
-                    (:mensaje, :imagen_nombre, :imagen_mime, :imagen_base64, :segmentos_json,
-                     :creado_por, 'pendiente', :total, 0, 0, NOW(), NOW())"
+                    (:mensaje, :segmentos_json, :creado_por, 'pendiente', :total, 0, 0, NOW(), NOW())"
             );
             $campaignStmt->execute([
-                'mensaje' => $message !== '' ? $message : null,
-                'imagen_nombre' => $image['nombre'] ?? null,
-                'imagen_mime' => $image['mime'] ?? null,
-                'imagen_base64' => $image['base64'] ?? null,
+                'mensaje' => $message,
                 'segmentos_json' => $segmentsJson,
                 'creado_por' => (int) ($user['id_usuario'] ?? 0) ?: null,
                 'total' => count($recipients),
@@ -339,7 +327,6 @@ final class MessageController
                 'tipos' => $types,
                 'contacto_individual' => $isIndividual ? $contactId : null,
                 'destinatarios' => count($recipients),
-                'con_imagen' => $image !== null,
                 'canal' => 'cola_24h_template',
             ],
             (int) ($user['id_usuario'] ?? 0)
@@ -353,7 +340,7 @@ final class MessageController
             'errores' => 0,
             'modo_envio' => 'cola',
             'procesamiento' => 'checkMessageSendsCCdeQbot',
-        ], 200, 'Promoción agregada a la cola. Firebase usará mensaje libre dentro de 24 h y plantilla aprobada de Meta fuera de 24 h.');
+        ], 200, 'Mensaje agregado a la cola. Firebase usará mensaje libre dentro de 24 h y la plantilla aprobada de Meta fuera de 24 h.');
     }
 
     private static function parseTypes(mixed $raw): array
@@ -375,53 +362,6 @@ final class MessageController
         }
 
         return array_values(array_intersect(self::SEGMENTS, $types));
-    }
-
-    private static function readImage(): ?array
-    {
-        if (!isset($_FILES['imagen']) || !is_array($_FILES['imagen'])) {
-            return null;
-        }
-
-        $file = $_FILES['imagen'];
-        $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
-        if ($error === UPLOAD_ERR_NO_FILE) {
-            return null;
-        }
-        if ($error !== UPLOAD_ERR_OK) {
-            Response::error('No fue posible recibir la imagen adjunta.', 422);
-        }
-
-        $size = (int) ($file['size'] ?? 0);
-        if ($size <= 0 || $size > self::MAX_IMAGE_BYTES) {
-            Response::error('La imagen debe pesar máximo 4 MB.', 422);
-        }
-
-        $tmp = (string) ($file['tmp_name'] ?? '');
-        if ($tmp === '' || !is_uploaded_file($tmp)) {
-            Response::error('El archivo adjunto no es válido.', 422);
-        }
-
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $mime = (string) $finfo->file($tmp);
-        $allowed = ['image/jpeg', 'image/png', 'image/webp'];
-        if (!in_array($mime, $allowed, true)) {
-            Response::error('Solo se permiten imágenes JPG, PNG o WEBP.', 422);
-        }
-
-        $contents = file_get_contents($tmp);
-        if ($contents === false) {
-            Response::error('No fue posible leer la imagen adjunta.', 422);
-        }
-
-        $name = basename((string) ($file['name'] ?? 'imagen'));
-        $name = preg_replace('/[^A-Za-z0-9._-]+/', '_', $name) ?: 'imagen';
-
-        return [
-            'nombre' => mb_substr($name, 0, 120),
-            'mime' => $mime,
-            'base64' => base64_encode($contents),
-        ];
     }
 
     private static function recipientById(PDO $pdo, int $contactId): array
